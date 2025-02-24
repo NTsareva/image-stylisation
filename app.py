@@ -5,9 +5,6 @@ from PIL import Image
 from rembg import remove
 import mediapipe as mp
 
-import cv2
-import numpy as np
-
 #увеличиваем насыщенность
 def increase_color_intensity(image, sat_scale=1.3, val_scale=1.0):
       #sat_scale  : во сколько раз увеличить насыщенность (1.0 = без изменений)
@@ -663,38 +660,9 @@ def create_lips_mask(image, faces, predictor):
     
     return mask
 
-def grayscale_with_palette_shadows(image, shadow_threshold=60, palette_bgr=None):
-    if palette_bgr is None:
-        palette_bgr = [
-            [162, 185, 241],
-            [136, 170, 246],
-            [185, 204, 235],
-            [198, 219, 247],
-            [210, 225, 253]
-        ]
-
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    gray_bgr = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
-
-    shadow_mask = (gray > shadow_threshold).astype(np.uint8)*255
-
-
-    out = gray_bgr.copy()
-
-    N = len(palette_bgr)
-    interval = 256 / N
-
-    idx_y, idx_x = np.where(shadow_mask == 255)
-    for y, x in zip(idx_y, idx_x):
-        val = gray[y, x]  
-        i_palette = min(N-1, int(val // interval))
-        out[y, x] = palette_bgr[i_palette]
-
-    return out
-
 def grayscale_with_colored_shadows(image, shadow_threshold=60, use_original_color=True, custom_color=(210, 225, 253), alpha=0.6):
 
-    # Превращаем всё изображение в grayscale
+    # Превращает всё изображение в grayscale
     # Находит тени, где яркость < shadow_threshold (по каналу V (HSV) или просто по grayscale)
     # Заменяет эти области (тени) либо на цвет из original, либо заливает custom_color (с альфа-смешением)
     #shadow_threshol  (0..255) чем выше порог, тем больше область тени
@@ -829,7 +797,12 @@ def main_pipeline(input_image_path, predictor_path, backgroud_image_path, backgr
         return
     
     #remove_background_selfie_segmentation(image1)
+    
+    #remove_background_selfie_segmentation(image1)
 
+    bg_image = cv2.imread(backgroud_image_path)
+    if bg_image is None:
+        print("Ошибка загрузки изображения")
     bg_image = cv2.imread(backgroud_image_path)
     if bg_image is None:
         print("Ошибка загрузки изображения")
@@ -841,14 +814,14 @@ def main_pipeline(input_image_path, predictor_path, backgroud_image_path, backgr
     
     #image = replace_background_color_pil(image, background_color=(150,255,0))
     #image = remove_red_tint_small_areas(image, factor=0.2)
-    image = replaceNoise(image1,9, 100, 100)
+   # image = replaceNoise(image1,9, 100, 100)
     #image = unsharp_mask(image, ksize=(5,5), sigma=1.0, amount=1.9, threshold=0)
-    image = adjust_whites(image)
-    image = enhance_shadows(image, shadow_threshold=100, shadow_strength=0.9)
+    #image = adjust_whites(image)
+    #image = enhance_shadows(image, shadow_threshold=80, shadow_strength=0.4)
    # image = adjust_brightness(image)
-    image = adjust_whites_blacks(image, 5, 210) #хорошо для контрастных снимков
+    #image = adjust_whites_blacks(image, 5, 210) #хорошо для контрастных снимков
     #image = adjust_whites_blacks(image, 10, 215) #хорошо для светлых неконтрастных снимков
-    #image = increase_color_intensity(image1, sat_scale=1.4,  val_scale=1.0) # хорошо для блеклых малоконтрастных снимков
+    image = increase_color_intensity(image1, sat_scale=1.4,  val_scale=1.0) # хорошо для блеклых малоконтрастных снимков
     #image = increase_color_intensity(image, sat_scale=1.2, val_scale=1.0) # хорошо для блеклых малоконтрастных снимков
     #image = replace_background_color_pil(image, background_color=(150,255,0))
     #dimage = replace_image_background(image, bg_image)
@@ -870,8 +843,7 @@ def main_pipeline(input_image_path, predictor_path, backgroud_image_path, backgr
     processed_eyes = process_eye_region(eyes_only)  # тут снова испортила светлые оттенки
 
     
-    new_skin = grayscale_with_colored_shadows(skin_only, shadow_threshold=20, use_original_color=False, custom_color=(136, 170, 246), alpha=0.4)
-    #new_skin = grayscale_with_palette_shadows(skin_only, shadow_threshold=40, palette_bgr=None)
+    new_skin = grayscale_with_colored_shadows(skin_only, shadow_threshold=20, use_original_color=False, custom_color=(136, 170, 246), alpha=0.5)
     palette_bgr = [
        # [162, 185, 241], #
        # [136, 170, 246],
@@ -917,26 +889,26 @@ def main_pipeline(input_image_path, predictor_path, backgroud_image_path, backgr
 
 
 
-    #lower = np.array([60, 135, 80], dtype=np.uint8)
-    #upper = np.array([230, 175, 135], dtype=np.uint8)
+    lower = np.array([60, 135, 80], dtype=np.uint8)
+    upper = np.array([230, 175, 135], dtype=np.uint8)
 
-   #palette_bgr = [
+    palette_bgr = [
        # [162, 185, 241], #
        # [136, 170, 246],
        # [185, 204, 235],
        # [198, 219, 247],  # 3064 skin, eyebrows
-        #[210, 225, 253], # 3770 skin
+        [210, 225, 253], # 3770 skin
         #[141, 172, 247], # 3771 lips
        # [184, 199, 245], # 3779 skin, lips
-    #]
+    ]
 
-    #shawow_color = np.array([117, 150, 211], dtype=np.int32)
+    shawow_color = np.array([117, 150, 211], dtype=np.int32)
 
-   #skin_mask = extract_skin_mask(image)
-    #skin_img = cv2.bitwise_and(image, image, mask=skin_mask)
+    skin_mask = extract_skin_mask(image)
+    skin_img = cv2.bitwise_and(image, image, mask=skin_mask)
    # cv2.imshow("clothes", skin_img)
 
-    #replaced_color_skin = replace_skin_with_palette_by_mask(skin_img, skin_mask,lower, upper, palette_bgr)
+    replaced_color_skin = replace_skin_with_palette_by_mask(skin_img, skin_mask,lower, upper, palette_bgr)
     #replaced_color_skin = replace_skin_with_palette_by_mask_soft(image, skin_mask, lower, upper, palette_bgr, blur_ksize=5, alpha=0.5)
     #replaced_color_skin = replace_skin_with_palette_by_mask_gradient(
     #    image, skin_mask, lower, upper, palette_bgr,
